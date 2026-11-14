@@ -170,3 +170,63 @@ func TestKeepAlive_CallsConfiguredPath(t *testing.T) {
 	}
 	t.Error("the emulator never called GET /keepalive")
 }
+
+// setConfigMode sends one setConfig and returns the cached LocalAuthentication
+// value ("0" online, "1" standalone, "" when nothing was set).
+func setConfigMode(t *testing.T, e *Emulator, query string) string {
+	t.Helper()
+	r := gin.New()
+	r.GET("/cgi-bin/configManager.cgi", e.handleConfigManager)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/cgi-bin/configManager.cgi?action=setConfig&"+query, nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("setConfig status: got %d, want 200; body=%s", w.Code, w.Body.String())
+	}
+	if p := e.localAuth.Load(); p != nil {
+		return *p
+	}
+	return ""
+}
+
+func newModeTestEmulator() *Emulator {
+	e, _ := newCardTestEmulator()
+	e.configs = newConfigStore("00:11:22:33:44:55")
+	return e
+}
+
+// A client that only sends the legacy PictureHttpUpload.Enable must be able
+// to switch the device online: the stored default DeviceMode=0 must not
+// override it.
+func TestSetConfig_LegacyEnableSwitchesOnline(t *testing.T) {
+	e := newModeTestEmulator()
+	if got := setConfigMode(t, e, "PictureHttpUpload.Enable=true"); got != "0" {
+		t.Errorf("Enable=true: LocalAuthentication got %q, want 0 (online)", got)
+	}
+	if got := setConfigMode(t, e, "PictureHttpUpload.Enable=false"); got != "1" {
+		t.Errorf("Enable=false: LocalAuthentication got %q, want 1 (standalone)", got)
+	}
+}
+
+// DeviceMode takes precedence when it is part of the same setConfig.
+func TestSetConfig_DeviceModeTakesPrecedenceWhenSent(t *testing.T) {
+	e := newModeTestEmulator()
+	if got := setConfigMode(t, e, "PictureHttpUpload.Enable=true&Intelbras_ModeCfg.DeviceMode=0"); got != "1" {
+		t.Errorf("Enable=true+DeviceMode=0: got %q, want 1", got)
+	}
+	if got := setConfigMode(t, e, "PictureHttpUpload.Enable=false&Intelbras_ModeCfg.DeviceMode=2"); got != "0" {
+		t.Errorf("Enable=false+DeviceMode=2: got %q, want 0", got)
+	}
+	if got := setConfigMode(t, e, "Intelbras_ModeCfg.DeviceMode=2"); got != "0" {
+		t.Errorf("DeviceMode=2 alone: got %q, want 0", got)
+	}
+}
+
+// A setConfig that touches neither key leaves the mode alone, even after an
+// earlier DeviceMode was stored.
+func TestSetConfig_UnrelatedKeysKeepMode(t *testing.T) {
+	e := newModeTestEmulator()
+	setConfigMode(t, e, "PictureHttpUpload.Enable=true")
+	if got := setConfigMode(t, e, "AccessControl%5B0%5D.CardStoreFormat=1"); got != "0" {
+		t.Errorf("unrelated setConfig changed mode: got %q, want 0", got)
+	}
+}

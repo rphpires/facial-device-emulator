@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -139,7 +140,7 @@ func (e *Emulator) handleConfigManager(c *gin.Context) {
 	case "setConfig":
 		n := e.configs.SetAllFromQuery(c.Request.URL.Query())
 		e.tracer.Info("[ConfigManager] setConfig stored %d key(s): %+v", n, c.Request.URL.Query())
-		e.applyNetworkConfig()
+		e.applyNetworkConfig(c.Request.URL.Query())
 		e.handleResponse(c, "OK", http.StatusOK, 50)
 
 	default:
@@ -149,8 +150,11 @@ func (e *Emulator) handleConfigManager(c *gin.Context) {
 
 // applyNetworkConfig applies the setConfig keys that change behavior to the
 // emulator state: the online push target and the operating mode
-// (PictureHttpUpload.* and Intelbras_ModeCfg.DeviceMode).
-func (e *Emulator) applyNetworkConfig() {
+// (PictureHttpUpload.* and Intelbras_ModeCfg.DeviceMode). The mode is only
+// changed by keys sent in this setConfig (q): the store always holds a
+// DeviceMode default, so reading the mode from it would reset the device to
+// standalone on every setConfig.
+func (e *Emulator) applyNetworkConfig(q url.Values) {
 	if e.repo == nil || e.configs == nil {
 		return
 	}
@@ -171,15 +175,15 @@ func (e *Emulator) applyNetworkConfig() {
 
 	// Operating mode. PictureHttpUpload.Enable is the legacy source;
 	// Intelbras_ModeCfg.DeviceMode (0 OFFLINE, 1 POST_EVENTS, 2 ONLINE) takes
-	// precedence when present, since that is what newer clients use.
+	// precedence when sent, since that is what newer clients use.
 	localAuth := ""
-	switch strings.ToLower(e.configs.Get("PictureHttpUpload.Enable")) {
+	switch strings.ToLower(q.Get("PictureHttpUpload.Enable")) {
 	case "true", "1":
 		localAuth = "0"
 	case "false", "0":
 		localAuth = "1"
 	}
-	switch e.configs.Get("Intelbras_ModeCfg.DeviceMode") {
+	switch q.Get("Intelbras_ModeCfg.DeviceMode") {
 	case "2":
 		localAuth = "0"
 	case "0":
