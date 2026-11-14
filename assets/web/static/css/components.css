@@ -1,0 +1,994 @@
+/* ========================================
+   Components
+   ======================================== */
+
+/* ----------------------------------------
+   Fleet meter — the signature element.
+   One segment per emulator, colored by state: the whole fleet is legible
+   without reading a single number. The same color vocabulary reappears in
+   the LED of each table row.
+   ---------------------------------------- */
+
+.meter {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-3);
+    /* Shrinks before pushing the brand: with 300 emulators the bar gets
+       wide, and on a narrow screen it is what should give way. */
+    min-width: 0;
+    overflow: hidden;
+}
+
+.meter__bar {
+    display: flex;
+    gap: 2px;
+    align-items: stretch;
+    height: 20px;
+    min-width: 60px;
+    padding: 3px;
+    background: var(--ink-800);
+    border: 1px solid var(--ink-600);
+    border-radius: var(--radius-sm);
+}
+
+.meter__seg {
+    flex: 1 1 3px;
+    min-width: 2px;
+    max-width: 6px;
+    border-radius: 1px;
+    background: var(--idle);
+    transition: background 0.3s var(--ease);
+}
+
+.meter__seg[data-state='running'] {
+    background: var(--live);
+}
+
+.meter__seg[data-state='stopped'] {
+    background: var(--halt);
+}
+
+.meter__seg[data-state='disabled'] {
+    background: var(--ink-600);
+}
+
+.meter__reading {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--size-sm);
+    color: var(--text-mid);
+    white-space: nowrap;
+}
+
+.meter__reading b {
+    color: var(--live);
+    font-weight: 500;
+}
+
+/* Stream health. 'live' shows nothing: silence is the normal state and
+   a permanent green badge becomes noise. */
+.meter__health {
+    font-size: var(--size-xs);
+    color: var(--warn);
+    white-space: nowrap;
+}
+
+.meter__health:empty {
+    display: none;
+}
+
+/* ----------------------------------------
+   State LED
+   ---------------------------------------- */
+
+.led {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--idle);
+    vertical-align: middle;
+}
+
+.led[data-state='running'] {
+    background: var(--live);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--live) 55%, transparent);
+}
+
+.led[data-state='stopped'] {
+    background: var(--halt);
+}
+
+.led[data-state='disabled'] {
+    background: var(--ink-500);
+}
+
+/* Transition flash: a real-time change must be noticed, not just
+   reflected. */
+@keyframes led-flash {
+    0% {
+        transform: scale(1);
+    }
+
+    35% {
+        transform: scale(2.1);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.led--flash {
+    animation: led-flash 0.5s var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .led--flash {
+        animation: none;
+    }
+}
+
+/* ----------------------------------------
+   Buttons
+   ---------------------------------------- */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--gap-2);
+    height: 32px;
+    padding: 0 var(--gap-3);
+    border: 1px solid var(--ink-500);
+    border-radius: var(--radius-md);
+    background: var(--ink-700);
+    color: var(--text-hi);
+    font: inherit;
+    font-size: var(--size-sm);
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+    background: var(--ink-600);
+    border-color: var(--ink-500);
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn--action {
+    background: var(--signal-dim);
+    border-color: var(--signal);
+    color: var(--signal);
+}
+
+.btn--action:hover:not(:disabled) {
+    background: var(--signal);
+    color: var(--ink-900);
+}
+
+.btn--go:hover:not(:disabled) {
+    border-color: var(--live);
+    color: var(--live);
+}
+
+.btn--halt:hover:not(:disabled) {
+    border-color: var(--halt);
+    color: var(--halt);
+}
+
+.btn--icon {
+    width: 32px;
+    padding: 0;
+}
+
+.btn--sm {
+    height: 26px;
+    padding: 0 var(--gap-2);
+}
+
+/* Pending state: the action was sent and has not come back yet, so the
+   row does not look unchanged until the SSE update arrives. */
+.btn[data-pending='true'] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ----------------------------------------
+   Fields
+   ---------------------------------------- */
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-1);
+    min-width: 0;
+}
+
+.field--inline {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--gap-2);
+}
+
+.field__label {
+    font-size: var(--size-xs);
+    font-weight: 500;
+    color: var(--text-mid);
+}
+
+.field__help {
+    margin-top: var(--gap-1);
+    font-size: var(--size-xs);
+    color: var(--text-low);
+}
+
+.log-links {
+    display: flex;
+    gap: var(--gap-2);
+    margin-top: var(--gap-2);
+}
+
+.log-links[hidden] {
+    display: none;
+}
+
+.input,
+.select {
+    height: 32px;
+    padding: 0 var(--gap-2);
+    border: 1px solid var(--ink-500);
+    border-radius: var(--radius-md);
+    background: var(--ink-900);
+    color: var(--text-hi);
+    font: inherit;
+    font-size: var(--size-sm);
+}
+
+.input::placeholder {
+    color: var(--text-low);
+}
+
+.input:focus,
+.select:focus {
+    border-color: var(--signal);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--signal-dim);
+}
+
+.input--mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.input--block {
+    width: 100%;
+}
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--gap-3);
+    padding: var(--gap-3);
+    margin-bottom: var(--gap-4);
+    background: var(--ink-800);
+    border: 1px solid var(--ink-600);
+    border-radius: var(--radius-lg);
+}
+
+.filters .field {
+    flex: 1 1 10rem;
+}
+
+.filters__actions {
+    display: flex;
+    gap: var(--gap-2);
+}
+
+/* ----------------------------------------
+   Reachability notice. A single block, no speculative variants: the app
+   has exactly one notice today.
+   ---------------------------------------- */
+
+.notice {
+    display: flex;
+    gap: var(--gap-3);
+    padding: var(--gap-3) var(--gap-4);
+    margin-bottom: var(--gap-4);
+    border-radius: var(--radius-lg);
+}
+
+.notice--warn {
+    border: 1px solid var(--warn);
+    background: var(--warn-dim);
+    color: var(--warn);
+}
+
+.notice__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-1);
+    min-width: 0;
+}
+
+.notice__headline {
+    font-weight: 600;
+}
+
+.notice__reason,
+.notice__help {
+    color: var(--text-mid);
+    font-size: var(--size-sm);
+}
+
+.notice__list {
+    margin-top: var(--gap-2);
+    padding-left: var(--gap-4);
+    font-size: var(--size-sm);
+    color: var(--text-mid);
+}
+
+/* ----------------------------------------
+   Table
+   ---------------------------------------- */
+
+.table-wrap {
+    overflow-x: auto;
+    background: var(--ink-800);
+    border: 1px solid var(--ink-600);
+    border-radius: var(--radius-lg);
+}
+
+.grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--size-sm);
+}
+
+/* top: 0, not the topbar height. .table-wrap has overflow-x: auto, which
+   makes it a scroll container on BOTH axes — sticky is measured against
+   it, not against the page. With top: 56px the header would be pushed
+   56px down inside the table and cover the first rows. */
+.grid thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: var(--gap-2) var(--gap-3);
+    background: var(--ink-700);
+    border-bottom: 1px solid var(--ink-600);
+    font-size: var(--size-xs);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.grid td {
+    height: var(--row-height);
+    padding: 0 var(--gap-3);
+    border-bottom: 1px solid var(--ink-700);
+    color: var(--text-hi);
+    white-space: nowrap;
+}
+
+.grid tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.grid tbody tr:hover td {
+    background: var(--ink-700);
+}
+
+/* Numbers align right so magnitudes compare at a glance; name and model
+   stay left, which is how text is read. */
+.grid .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.grid .center {
+    text-align: center;
+}
+
+.grid__id {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--gap-2);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.grid__name {
+    max-width: 20rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.grid tr[data-state='disabled'] td {
+    color: var(--text-low);
+}
+
+/* Error rows: a stripe on the left edge plus a faint tint, not a full red
+   background. A red background on a wide row competes with the text. */
+.grid tr[data-state='error'] td {
+    background: color-mix(in srgb, var(--warn) 6%, transparent);
+}
+
+.grid tr[data-state='error'] td:first-child {
+    box-shadow: inset 2px 0 0 var(--warn);
+}
+
+.row-actions {
+    display: flex;
+    gap: var(--gap-1);
+}
+
+/* Placeholder for a cell with no applicable value (e.g. mode on a model
+   that does not read that setting). Dimmed, not empty, so it does not look
+   like missing data. */
+.text-low {
+    color: var(--text-low);
+}
+
+/* ----------------------------------------
+   State badge
+   ---------------------------------------- */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--gap-1);
+    padding: 2px var(--gap-2);
+    border-radius: 999px;
+    font-size: var(--size-xs);
+    font-weight: 500;
+    background: var(--idle-dim);
+    color: var(--text-mid);
+}
+
+.badge[data-state='running'] {
+    background: var(--live-dim);
+    color: var(--live);
+}
+
+.badge[data-state='stopped'] {
+    background: var(--halt-dim);
+    color: var(--halt);
+}
+
+.badge[data-state='disabled'] {
+    background: var(--idle-dim);
+    color: var(--text-low);
+}
+
+.badge[data-state='error'] {
+    background: var(--warn-dim);
+    color: var(--warn);
+}
+
+/* ----------------------------------------
+   Empty state
+   ---------------------------------------- */
+
+.empty {
+    padding: var(--gap-6) var(--gap-4);
+    text-align: center;
+    color: var(--text-mid);
+    white-space: normal;
+}
+
+.empty__title {
+    margin-bottom: var(--gap-2);
+    color: var(--text-hi);
+    font-weight: 500;
+}
+
+.empty--error .empty__title {
+    color: var(--halt);
+}
+
+/* ----------------------------------------
+   Pagination
+   ---------------------------------------- */
+
+.pager {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-3);
+    margin-top: var(--gap-4);
+}
+
+.pager__pages {
+    display: flex;
+    gap: var(--gap-1);
+    margin-left: auto;
+}
+
+.pager__page {
+    display: grid;
+    place-items: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 var(--gap-1);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--text-mid);
+    font: inherit;
+    font-family: var(--font-mono);
+    font-size: var(--size-sm);
+    cursor: pointer;
+}
+
+.pager__page:hover {
+    background: var(--ink-700);
+    color: var(--text-hi);
+}
+
+.pager__page[aria-current='page'] {
+    border-color: var(--signal);
+    color: var(--signal);
+}
+
+.pager__page[aria-disabled='true'],
+.pager__page:disabled {
+    color: var(--text-low);
+    pointer-events: none;
+}
+
+/* ----------------------------------------
+   Drawer
+   ---------------------------------------- */
+
+.drawer {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 40;
+    width: min(640px, 100vw);
+    display: flex;
+    flex-direction: column;
+    background: var(--ink-800);
+    border-left: 1px solid var(--ink-600);
+    box-shadow: var(--shadow-float);
+    transform: translateX(100%);
+    transition: transform 0.2s var(--ease);
+}
+
+.drawer[data-open='true'] {
+    transform: translateX(0);
+}
+
+.drawer__head {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-3);
+    padding: var(--gap-3) var(--gap-4);
+    border-bottom: 1px solid var(--ink-600);
+}
+
+.drawer__title {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-2);
+    font-weight: 600;
+}
+
+.drawer__close {
+    margin-left: auto;
+}
+
+.drawer__tabs {
+    display: flex;
+    gap: var(--gap-1);
+    padding: 0 var(--gap-4);
+    border-bottom: 1px solid var(--ink-600);
+}
+
+.drawer__tab {
+    padding: var(--gap-2) var(--gap-3);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--text-mid);
+    font: inherit;
+    font-size: var(--size-sm);
+    cursor: pointer;
+}
+
+.drawer__tab[aria-selected='true'] {
+    border-bottom-color: var(--signal);
+    color: var(--text-hi);
+}
+
+.drawer__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-4);
+    padding: var(--gap-4);
+    overflow-y: auto;
+}
+
+.drawer__body>section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-3);
+}
+
+.drawer-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: rgb(0 0 0 / 55%);
+}
+
+/* ----------------------------------------
+   Form panels
+   ---------------------------------------- */
+
+/* The native <dialog> starts with the browser's white box and black
+   border. On an --ink-900 page that reads as a rendering bug, so the rule
+   below gives the modal the same visual language as the panels it
+   interrupts. */
+.modal {
+    padding: 0;
+    border: 1px solid var(--ink-600);
+    border-radius: var(--radius-lg);
+    background: var(--ink-800);
+    color: var(--text-hi);
+    box-shadow: var(--shadow-float);
+    width: min(520px, calc(100vw - var(--gap-5) * 2));
+    max-height: calc(100vh - var(--gap-5) * 2);
+    overflow: auto;
+}
+
+.modal::backdrop {
+    background: rgb(0 0 0 / 60%);
+}
+
+/* The .panel inside the modal is not a card on the page: it IS the modal.
+   Without this the border would double the <dialog>'s. .panel sets no
+   box-shadow and no margin other than margin-bottom, so only that is reset. */
+.modal .panel {
+    margin-bottom: 0;
+    border: 0;
+    border-radius: 0;
+}
+
+.panel {
+    max-width: 34rem;
+    margin-bottom: var(--gap-5);
+    background: var(--ink-800);
+    border: 1px solid var(--ink-600);
+    border-radius: var(--radius-lg);
+}
+
+.panel--wide {
+    max-width: none;
+    margin-bottom: 0;
+}
+
+.panel__head {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-2);
+    padding: var(--gap-3) var(--gap-4);
+    border-bottom: 1px solid var(--ink-600);
+    font-weight: 600;
+    font-size: var(--size-sm);
+}
+
+.panel__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-3);
+    padding: var(--gap-4);
+}
+
+.panel__note {
+    color: var(--text-mid);
+    font-size: var(--size-sm);
+}
+
+.panel__note code {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--signal);
+}
+
+.panel__note--ok {
+    color: var(--live);
+}
+
+.panel__note--error {
+    color: var(--halt);
+}
+
+.input-group {
+    display: flex;
+    gap: var(--gap-1);
+}
+
+.input-group .input {
+    flex: 1;
+}
+
+.self-start {
+    align-self: flex-start;
+}
+
+/* ----------------------------------------
+   Toasts
+   ---------------------------------------- */
+
+.toast-region {
+    position: fixed;
+    right: var(--gap-4);
+    bottom: var(--gap-4);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-2);
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-2);
+    max-width: 24rem;
+    padding: var(--gap-2) var(--gap-3);
+    background: var(--ink-700);
+    border: 1px solid var(--ink-500);
+    border-left: 3px solid var(--text-mid);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-float);
+    font-size: var(--size-sm);
+    animation: toast-in 0.2s var(--ease);
+}
+
+.toast--ok {
+    border-left-color: var(--live);
+}
+
+.toast--ok .icon {
+    color: var(--live);
+}
+
+.toast--err {
+    border-left-color: var(--halt);
+}
+
+.toast--err .icon {
+    color: var(--halt);
+}
+
+.toast--info {
+    border-left-color: var(--signal);
+}
+
+.toast--info .icon {
+    color: var(--signal);
+}
+
+.toast--leaving {
+    opacity: 0;
+    transition: opacity 0.2s var(--ease);
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ----------------------------------------
+   Checkbox
+   ---------------------------------------- */
+
+.check {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--signal);
+    cursor: pointer;
+}
+
+.check:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+/* ----------------------------------------
+   Real-time device table
+   ---------------------------------------- */
+
+/* Client-only states: "starting" (start in progress) and "error"
+   (stopped, with the last start failed). */
+.led[data-state='starting'] {
+    background: var(--warn);
+    animation: led-pulse 1s var(--ease) infinite;
+}
+
+.led[data-state='error'] {
+    background: var(--warn);
+}
+
+@keyframes led-pulse {
+    50% {
+        opacity: 0.35;
+    }
+}
+
+.badge[data-state='starting'] {
+    background: var(--warn-dim);
+    color: var(--warn);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .led[data-state='starting'] {
+        animation: none;
+    }
+}
+
+.page-head__meta {
+    white-space: nowrap;
+    color: var(--text-low);
+    font-size: var(--size-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.filters .filters__search {
+    flex: 1 1 18rem;
+}
+
+/* The selects have a few short options; stretched to the edge they
+   competed with search, the most used filter. */
+.filters .field:has(.select) {
+    flex: 0 1 11rem;
+}
+
+.filters > .filters__actions {
+    margin-left: auto;
+}
+
+/* Sortable header: the button fills the whole cell so the click target
+   is the column, not just the word. */
+.grid__sort {
+    all: unset;
+    cursor: pointer;
+}
+
+.grid__sort:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+}
+
+/* The arrow slot is always reserved (empty when the column is not sorted)
+   so the label does not jump when sorting changes. On numeric columns the
+   arrow comes first, keeping the label right-aligned with the numbers. */
+.grid__sort::after,
+th.num .grid__sort::before {
+    display: inline-block;
+    width: 1em;
+    color: var(--signal);
+    font-size: 0.7em;
+    text-align: center;
+}
+
+.grid__sort::after {
+    content: '';
+}
+
+th.num .grid__sort::after {
+    content: none;
+}
+
+th.num .grid__sort::before {
+    content: '';
+}
+
+th[aria-sort='ascending'] .grid__sort::after,
+th.num[aria-sort='ascending'] .grid__sort::before {
+    content: '▲';
+}
+
+th[aria-sort='descending'] .grid__sort::after,
+th.num[aria-sort='descending'] .grid__sort::before {
+    content: '▼';
+}
+
+th.num[aria-sort] .grid__sort::after {
+    content: none;
+}
+
+.grid tbody tr[aria-selected='true'] td {
+    background: color-mix(in srgb, var(--signal) 7%, transparent);
+}
+
+/* Cell changed by the stream: a brief highlight, so the change is noticed
+   without the operator comparing numbers. */
+@keyframes cell-changed {
+    from {
+        background: color-mix(in srgb, var(--signal) 22%, transparent);
+    }
+}
+
+.cell--changed {
+    animation: cell-changed 1.2s var(--ease);
+}
+
+@keyframes row-new {
+    from {
+        background: color-mix(in srgb, var(--live) 18%, transparent);
+    }
+}
+
+.row--new td {
+    animation: row-new 2s var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cell--changed,
+    .row--new td {
+        animation: none;
+    }
+}
+
+/* Batch action bar: shown only with a selection, stuck to the top of the
+   content area so it stays reachable on a long table. */
+.bulk-bar {
+    position: sticky;
+    top: var(--gap-2);
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--gap-2);
+    padding: var(--gap-2) var(--gap-3);
+    margin-bottom: var(--gap-3);
+    background: var(--ink-700);
+    border: 1px solid var(--signal);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-float);
+}
+
+.bulk-bar[hidden] {
+    display: none;
+}
+
+.bulk-bar__count {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.bulk-bar__spacer {
+    flex: 1;
+}
+
+.btn--link {
+    border-color: transparent;
+    background: transparent;
+    color: var(--signal);
+}
+
+.btn--link:hover:not(:disabled) {
+    background: transparent;
+    border-color: transparent;
+    text-decoration: underline;
+}

@@ -1,0 +1,42 @@
+# Binaries and build output
+/emulator-service
+/facial-device-emulator
+bin/
+dist/
+dist-*/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.zip
+*.rar
+packaging/.out/
+.build-cache/
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Logs and traces written at runtime
+logs/
+traces/
+*.log
+*.trace
+
+# Go test and coverage artifacts
+*.test
+*.out
+coverage.*
+
+# Local assistant notes
+CLAUDE.md
+
+# Git worktrees and editor state
+.worktrees/
+.vscode/
+.idea/
+
+# Database dumps
+backups/

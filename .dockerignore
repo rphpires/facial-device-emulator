@@ -1,0 +1,56 @@
+# Only go.mod/go.sum, the Go source, assets/ and configs/ are needed to build
+# the image. Everything else is excluded to keep the build context small.
+
+# Git and CI
+.git
+.gitignore
+.github
+
+# Editors
+.vscode
+.idea
+*.swp
+*~
+
+# Documentation
+*.md
+docs/
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Logs and traces
+logs/
+traces/
+*.log
+
+# Tests
+*_test.go
+
+# Environment
+.env
+.env.*
+
+# Docker and scripts
+Dockerfile
+docker-compose*.yml
+.dockerignore
+Makefile
+*.sh
+*.bat
+
+# Packaging output and the local cache (.build-cache holds a full portable
+# PostgreSQL; without these lines the build context can exceed 1 GB).
+packaging/
+scripts/
+.build-cache/
+dist/
+dist-*/
+*.zip
+*.rar
+tmp/
+.worktrees/

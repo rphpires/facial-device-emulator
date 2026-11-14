@@ -1,0 +1,58 @@
+# Docker package, published-port mode (Docker Desktop on Windows/macOS, WSL).
+# The device ports are published as a range; the app reads
+# PUBLISHED_PORT_RANGE to warn about devices outside it.
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: facial-device-emulator-db
+    environment:
+      POSTGRES_USER: emulator
+      POSTGRES_PASSWORD: emulator123
+      POSTGRES_DB: emulator_db
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emulator -d emulator_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    image: facial-device-emulator:1.0
+    container_name: facial-device-emulator-app
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "7070"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: emulator
+      DB_PASSWORD: emulator123
+      DB_DATABASE: emulator_db
+      # Service log: stdout (docker logs) plus this file in the mounted ./logs.
+      LOG_FILE: logs/trace.log
+      # Must describe exactly what the ports list below publishes. The app
+      # uses it to flag devices that will not be reachable. A contract test
+      # (internal/reachability/compose_test.go) keeps the two in sync.
+      PUBLISHED_PORT_RANGE: "4000-4499"
+    ports:
+      - "7070:7070"
+      # 500 devices. For more, change the line below and
+      # PUBLISHED_PORT_RANGE above to the same range.
+      # - "4000-4999:4000-4999"
+      - "4000-4499:4000-4499"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Room for the HTTP drain (5 s) plus stopping every device and
+    # closing the pools; Docker's default of 10 s can cut that short.
+    stop_grace_period: 20s
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  postgres_data:
+    driver: local

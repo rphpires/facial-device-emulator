@@ -1,0 +1,26 @@
+<nav class="rail" id="rail" aria-label="Main navigation">
+  <button type="button" class="rail__item" id="rail-toggle"
+          aria-expanded="false" aria-controls="rail">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#menu"></use></svg>
+    <span class="rail__label">Expand</span>
+  </button>
+
+  <div class="rail__divider"></div>
+
+  <a href="/" class="rail__item" data-nav="/">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#devices"></use></svg>
+    <span class="rail__label">Devices</span>
+  </a>
+
+  <div class="rail__divider"></div>
+
+  <button type="button" class="rail__item rail__item--go" id="start-all" title="Start all">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#play"></use></svg>
+    <span class="rail__label">Start all</span>
+  </button>
+
+  <button type="button" class="rail__item rail__item--danger" id="stop-all" title="Stop all">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#stop"></use></svg>
+    <span class="rail__label">Stop all</span>
+  </button>
+</nav>

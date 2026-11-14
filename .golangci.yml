@@ -1,0 +1,46 @@
+# golangci-lint configuration (v2 format). CI pins the same version as
+# "make lint" (v2.15.0, see .github/workflows/ci.yml and the Makefile); keep
+# them in sync. v2.15 is built with Go 1.27, the version go.mod targets.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck # includes the former gosimple checks (S1xxx)
+    - unused
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net.Listener).Close
+    misspell:
+      locale: US
+    staticcheck:
+      # The v1 setup ran staticcheck (SA) and gosimple (S1) only; the
+      # style (ST) and quick-fix (QF) groups v2 folds in stay off.
+      checks:
+        - "SA*"
+        - "S1*"
+  exclusions:
+    # The v1 default exclusions (EXC0001...), as v2 presets.
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt

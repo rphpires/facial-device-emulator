@@ -1,0 +1,28 @@
+# PostgreSQL only, for running the service from source (make run).
+#
+#   docker compose -f docker-compose.db-only.yml up -d
+#
+# POSTGRES_HOST_PORT changes the host port (default 5432); set DB_PORT to the
+# same value when starting the service.
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: facial-device-emulator-db-dev
+    environment:
+      POSTGRES_USER: emulator
+      POSTGRES_PASSWORD: emulator123
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./docker-init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emulator -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  postgres_dev_data:

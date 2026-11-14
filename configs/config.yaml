@@ -1,0 +1,44 @@
+# Facial Device Emulator configuration.
+#
+# Every value below can be overridden by an environment variable (see
+# docs/configuration.md): SERVER_HOST, SERVER_PORT, and DB_HOST, DB_PORT,
+# DB_USER, DB_PASSWORD, DB_DATABASE (also accepted with the PG_ and
+# POSTGRES_ prefixes), DB_RESET_ON_MISMATCH, EMULATOR_DEFAULT_TIMEZONE, and
+# LOG_LEVEL, LOG_FORMAT, LOG_FILE. A .env.local, .env or .env.development
+# file in the working directory is loaded first; real environment variables
+# win.
+
+app_version: "1.0.0"
+
+# Web console, REST API and monitoring endpoints. Emulated devices listen on
+# their own ports, configured per device.
+server:
+  host: "0.0.0.0"
+  port: 7070
+
+# PostgreSQL database. On an empty database the schemas and tables are
+# created on startup. If they exist but do not match, the service refuses to
+# start; reset_on_mismatch: true (or the -reset-db flag) drops and recreates
+# the service and emulator schemas instead, DELETING ALL THEIR DATA.
+service_db:
+  driver: "postgres"
+  host: "127.0.0.1"
+  port: 5432
+  username: "emulator"
+  password: "emulator123"
+  database: "emulator_db"
+  reset_on_mismatch: false
+
+# Settings shared by every emulated device.
+emulator:
+  # IANA time zone devices report times in (event timestamps, device clock)
+  # until the client sets one through the device protocol. Default "UTC".
+  default_timezone: "UTC"
+
+# Service log. Written to stdout; "file" adds a copy on disk, rotated at
+# max_size_mb with max_files old copies kept. Overrides: LOG_LEVEL,
+# LOG_FORMAT, LOG_FILE.
+log:
+  level: "info"     # debug, info, warn or error
+  format: "text"    # text or json
+  file: ""

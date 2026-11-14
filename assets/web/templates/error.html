@@ -1,0 +1,12 @@
+{{ define "title" }}Error - Facial Device Emulator{{ end }}
+
+{{ define "content" }}
+<section class="page-error">
+  <h1 class="page-error__title">This page could not be loaded</h1>
+  <p class="page-error__detail">{{ .error }}</p>
+  <p class="page-error__hint">
+    Check the database connection and try again.
+  </p>
+  <a class="btn btn--action" href="/">Back to Devices</a>
+</section>
+{{ end }}

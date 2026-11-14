@@ -1,0 +1,305 @@
+{{ define "title" }}Devices - Facial Device Emulator{{ end }}
+
+{{ define "content" }}
+
+<div class="page-head">
+  <h1>Devices</h1>
+  <span class="page-head__meta" id="grid-summary" aria-live="polite"></span>
+  <div class="page-head__actions">
+    <button type="button" class="btn btn--action" id="new-emulator">
+      <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#plus"></use></svg>
+      New emulator
+    </button>
+    <button type="button" class="btn" id="new-emulator-range">
+      <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#devices"></use></svg>
+      Create range
+    </button>
+  </div>
+</div>
+
+<!-- The costliest failure gives no signal at all: the emulators start, the
+     screen is all green and the system under test sees them offline. The
+     notice only exists when there is something to report; devices.js shows
+     and hides it. -->
+<div id="reachability-alert-row" hidden>
+  <div class="notice notice--warn" id="reachability-alert" role="alert">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#alert"></use></svg>
+    <div class="notice__body">
+      <p class="notice__headline" id="reachability-headline"></p>
+      <p class="notice__reason" id="reachability-reason"></p>
+      <p class="notice__help" id="reachability-help"></p>
+      <button type="button" class="btn btn--sm" id="reachability-toggle"
+              aria-expanded="false" aria-controls="reachability-list">Show list</button>
+      <ul class="notice__list" id="reachability-list" hidden></ul>
+    </div>
+  </div>
+</div>
+
+<!-- Instant filter: every keystroke filters the fleet already on screen,
+     with no server round trip. The state goes to the URL, so a link or a
+     reload keeps showing the same slice. -->
+<form class="filters" id="filter-form" role="search" autocomplete="off">
+  <div class="field filters__search">
+    <label class="field__label" for="filter-q">Search</label>
+    <input class="input" type="search" id="filter-q" name="q"
+           placeholder="ID, name or port">
+  </div>
+  <div class="field">
+    <label class="field__label" for="filter-status">Status</label>
+    <select class="select" id="filter-status" name="status">
+      <option value="">All</option>
+      <option value="running">Running</option>
+      <option value="stopped">Stopped</option>
+      <option value="error">Error</option>
+      <option value="disabled">Disabled</option>
+    </select>
+  </div>
+  <div class="field">
+    <label class="field__label" for="filter-model">Model</label>
+    <select class="select" id="filter-model" name="model">
+      <option value="">All</option>
+      <option value="Hikvision">Hikvision</option>
+      <option value="Dahua">Dahua</option>
+    </select>
+  </div>
+  <div class="filters__actions">
+    <button type="reset" class="btn" id="filter-clear">Clear</button>
+  </div>
+</form>
+
+<!-- Batch actions only appear with a selection. The selection survives
+     paging and filtering; every action goes through POST /api/emulators/batch. -->
+<div class="bulk-bar" id="bulk-bar" role="region" aria-label="Batch actions" hidden>
+  <span class="bulk-bar__count" id="bulk-count" aria-live="polite"></span>
+  <button type="button" class="btn btn--sm btn--link" id="select-filtered"></button>
+  <span class="bulk-bar__spacer"></span>
+  <button type="button" class="btn btn--sm btn--go" id="start-selected" data-batch="start">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#play"></use></svg>
+    Start
+  </button>
+  <button type="button" class="btn btn--sm btn--halt" id="stop-selected" data-batch="stop">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#stop"></use></svg>
+    Stop
+  </button>
+  <button type="button" class="btn btn--sm" id="enable-selected" data-batch="enable">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#check"></use></svg>
+    Enable
+  </button>
+  <button type="button" class="btn btn--sm" id="disable-selected" data-batch="disable">Disable</button>
+  <button type="button" class="btn btn--sm btn--halt" id="delete-selected" data-batch="delete">
+    <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#close"></use></svg>
+    Delete
+  </button>
+  <button type="button" class="btn btn--sm" id="clear-selection">Clear selection</button>
+</div>
+
+<div class="table-wrap">
+  <table class="grid" id="device-grid">
+    <thead>
+      <tr>
+        <th class="center">
+          <input type="checkbox" class="check" id="select-all"
+                 aria-label="Select the devices on this page">
+        </th>
+        <th aria-sort="ascending"><button type="button" class="grid__sort" data-sort="id">ID</button></th>
+        <th aria-sort="none"><button type="button" class="grid__sort" data-sort="name">Name</button></th>
+        <th aria-sort="none"><button type="button" class="grid__sort" data-sort="model">Model</button></th>
+        <th class="num" aria-sort="none"><button type="button" class="grid__sort" data-sort="port">Port</button></th>
+        <th>Mode</th>
+        <th class="center">Log</th>
+        <th class="num">Interval</th>
+        <th class="num" aria-sort="none"><button type="button" class="grid__sort" data-sort="users">Users</button></th>
+        <th aria-sort="none"><button type="button" class="grid__sort" data-sort="status">Status</button></th>
+        <th class="center">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="device-rows"></tbody>
+  </table>
+</div>
+
+<div class="pager">
+  <div class="field field--inline">
+    <label class="field__label" for="per-page">Rows per page</label>
+    <select class="select" id="per-page">
+      <option value="10">10</option>
+      <option value="25">25</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+    </select>
+  </div>
+
+  <nav class="pager__pages" id="pager-pages" aria-label="Pagination"></nav>
+</div>
+
+<!-- Fleet at render time: the first paint does not wait for the stream
+     snapshot. -->
+<script type="application/json" id="fleet-initial">{{ .fleet }}</script>
+
+<div class="drawer-scrim" id="drawer-scrim" hidden></div>
+
+<aside class="drawer" id="device-drawer" data-open="false"
+       role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+  <div class="drawer__head">
+    <h2 class="drawer__title" id="drawer-title">
+      <span class="led" id="drawer-led" aria-hidden="true"></span>
+      <span id="drawer-name">Device</span>
+    </h2>
+    <button type="button" class="btn btn--icon drawer__close" id="drawer-close"
+            aria-label="Close">
+      <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#close"></use></svg>
+    </button>
+  </div>
+
+  <div class="drawer__tabs" role="tablist">
+    <button type="button" class="drawer__tab" role="tab" id="tab-users"
+            data-tab="users" aria-selected="true" aria-controls="panel-users">Users</button>
+    <button type="button" class="drawer__tab" role="tab" id="tab-settings"
+            data-tab="settings" aria-selected="false" aria-controls="panel-settings">Settings</button>
+  </div>
+
+  <div class="drawer__body">
+    <section id="panel-users" role="tabpanel" aria-labelledby="tab-users">
+      <input class="input input--block" type="search" id="users-search"
+             placeholder="Search by name or ID" aria-label="Search users">
+
+      <div class="table-wrap">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Card</th>
+              <th class="center">Face</th>
+              <th class="num">Valid until</th>
+            </tr>
+          </thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </div>
+
+      <div class="pager">
+        <span class="meter__reading" id="users-summary"></span>
+        <div class="pager__pages">
+          <button type="button" class="btn btn--sm" id="users-prev">Previous</button>
+          <button type="button" class="btn btn--sm" id="users-next">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+      <div class="panel panel--wide">
+        <div class="panel__head">Emulator</div>
+        <div class="panel__body">
+          <label class="field field--inline">
+            <input type="checkbox" class="check" id="drawer-log">
+            <span>Record event log</span>
+          </label>
+          <p class="field__help" id="drawer-log-help">Keeps the last 8 files of 3 MB. Turning it off deletes them.</p>
+          <p class="log-links" id="drawer-log-links" hidden>
+            <a class="btn btn--sm" id="drawer-log-view" target="_blank" rel="noopener">View log</a>
+            <a class="btn btn--sm" id="drawer-log-zip" download>Download logs (.zip)</a>
+          </p>
+        </div>
+      </div>
+
+      <p class="label">Settings written by the access control system</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Setting</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody id="settings-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</aside>
+
+<!-- One modal, two modes. The range mode swaps "Port" for "First / last
+     port" and "Name" for "Name prefix"; every other field is identical. -->
+<dialog class="modal" id="emulator-form-modal">
+  <form method="dialog" class="panel" id="emulator-form">
+    <div class="panel__head" id="emulator-form-title">New emulator</div>
+
+    <div class="panel__body">
+      <div class="field" id="field-name">
+        <label class="field__label" for="emulator-name">Name</label>
+        <input class="input" type="text" id="emulator-name" required>
+      </div>
+
+      <div class="field" id="field-prefix" hidden>
+        <label class="field__label" for="emulator-prefix">Name prefix</label>
+        <input class="input" type="text" id="emulator-prefix"
+               placeholder="lab">
+        <p class="field__help">Each emulator is named
+          <code>prefix-port</code>, for example <code>lab-4000</code>.</p>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="emulator-model">Model</label>
+        <select class="select" id="emulator-model">
+          <option value="Hikvision">Hikvision</option>
+          <option value="Dahua">Dahua</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="emulator-ip">IP address</label>
+        <input class="input input--mono" type="text" id="emulator-ip"
+               value="127.0.0.1">
+        <p class="field__help">Only reported in the emulator's responses.
+          The server listens on all interfaces.</p>
+      </div>
+
+      <div class="field" id="field-port">
+        <label class="field__label" for="emulator-port">Port</label>
+        <input class="input input--mono" type="number" id="emulator-port"
+               min="1" max="65535" value="4000">
+      </div>
+
+      <div class="field" id="field-port-range" hidden>
+        <label class="field__label" for="emulator-port-start">First port</label>
+        <input class="input input--mono" type="number" id="emulator-port-start"
+               min="1" max="65535" value="4000">
+        <label class="field__label" for="emulator-port-end">Last port</label>
+        <input class="input input--mono" type="number" id="emulator-port-end"
+               min="1" max="65535" value="4009">
+        <p class="field__help">Up to 1000 ports per range.</p>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="emulator-interval">Event interval (s)</label>
+        <input class="input input--mono" type="number" id="emulator-interval"
+               min="0" value="10">
+      </div>
+
+      <div class="field field--inline">
+        <input class="check" type="checkbox" id="emulator-enabled" checked>
+        <label class="field__label" for="emulator-enabled">Enabled</label>
+      </div>
+
+      <div class="field field--inline" id="field-autostart">
+        <input class="check" type="checkbox" id="emulator-autostart">
+        <label class="field__label" for="emulator-autostart">Start after creating</label>
+      </div>
+
+      <p class="panel__note panel__note--error" id="emulator-form-error" hidden></p>
+
+      <div class="filters__actions">
+        <button type="button" class="btn btn--action" id="emulator-form-save">Save</button>
+        <button type="button" class="btn" id="emulator-form-cancel">Cancel</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+{{ end }}
+
+{{ define "additional_js" }}
+<script src="/static/js/device-drawer.js"></script>
+<script src="/static/js/emulator-form.js"></script>
+<script src="/static/js/devices.js"></script>
+{{ end }}

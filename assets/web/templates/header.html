@@ -1,0 +1,26 @@
+<header class="topbar">
+  <a class="topbar__brand" href="/">
+    <span class="topbar__mark">
+      <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#devices"></use></svg>
+    </span>
+    Facial Device Emulator
+    {{ if .app_version }}
+    <span class="topbar__version">v{{ .app_version }}</span>
+    {{ end }}
+  </a>
+
+  <!-- Fleet meter: one segment per emulator. The server counts seed the
+       initial state; FleetStream takes over once the snapshot arrives. -->
+  <div class="meter" id="fleet-meter"
+       data-total="{{ .counter_cards.total | default 0 }}"
+       data-running="{{ .counter_cards.running | default 0 }}"
+       data-stopped="{{ .counter_cards.stopped | default 0 }}"
+       data-disabled="{{ .counter_cards.disabled | default 0 }}">
+    <div class="meter__bar" id="meter-bar" role="img"
+         aria-label="Emulator fleet status"></div>
+    <span class="meter__reading" id="meter-reading"></span>
+    <span class="meter__health" id="meter-health"></span>
+  </div>
+
+  <span class="topbar__spacer"></span>
+</header>

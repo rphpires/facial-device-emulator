@@ -1,0 +1,58 @@
+# Docker package, host-network mode (Docker Engine on native Linux).
+# With network_mode: host every device port is reachable directly: no
+# published range and no limit. On Docker Desktop (Windows/macOS) host
+# networking is not reliable; use docker-compose.yml there.
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: facial-device-emulator-db
+    environment:
+      POSTGRES_USER: emulator
+      POSTGRES_PASSWORD: emulator123
+      POSTGRES_DB: emulator_db
+    expose:
+      - "5432"
+    ports:
+      # Unusual port on purpose: avoids colliding with a PostgreSQL server
+      # already installed on the host (including the one the Linux package
+      # installs on 5432).
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emulator -d emulator_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    image: facial-device-emulator:1.0
+    container_name: facial-device-emulator-app
+    network_mode: host
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "7070"
+      DB_HOST: 127.0.0.1
+      DB_PORT: "55432"
+      DB_USER: emulator
+      DB_PASSWORD: emulator123
+      DB_DATABASE: emulator_db
+      # Service log: stdout (docker logs) plus this file in the mounted ./logs.
+      LOG_FILE: logs/trace.log
+      # Tells the reachability check that ports are not published but
+      # reachable directly. Must stay in sync with network_mode: host.
+      HOST_NETWORK: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Room for the HTTP drain (5 s) plus stopping every device and
+    # closing the pools; Docker's default of 10 s can cut that short.
+    stop_grace_period: 20s
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  postgres_data:
+    driver: local
